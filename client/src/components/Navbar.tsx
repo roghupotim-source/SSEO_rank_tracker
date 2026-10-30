@@ -2,15 +2,17 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { Search, BarChart3, History, LogOut, Menu, X, Target, Sun, Moon, ChartNoAxesColumnIcon } from "lucide-react";
 import { useState } from "react";
+import { useApp } from "../context/AppContext";
 
 export default function Navbar() {
-    const { user } = { user: { name: "John", email: "john@example.com", plan: "PRO" } };
+    const { user, logout } = useApp()
     const { theme, setTheme } = useTheme();
     const navigate = useNavigate();
     const location = useLocation();
     const [mobileOpen, setMobileOpen] = useState(false);
 
     const handleLogout = () => {
+        logout()
         navigate("/");
     };
 
