@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, Target, Globe, Clock, TrendingUp, TrendingDown, Minus, RefreshCw, AlertCircle, ExternalLink, Trophy, Users, Calendar, Loader2 } from "lucide-react";
 import { dummyWebsiteRanking } from "../assets/assets";
+import { useApp } from "../context/AppContext";
 
 interface RankHistoryEntry {
     date: string;
@@ -38,6 +39,7 @@ interface TrackingData {
 }
 
 export default function RankDetail() {
+    const { api } = useApp()
     const { id } = useParams();
     const [tracking, setTracking] = useState<TrackingData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -46,19 +48,44 @@ export default function RankDetail() {
     const chartRef = useRef<HTMLCanvasElement>(null);
 
     const fetchTracking = async () => {
-        setTimeout(() => {
-            setTracking(dummyWebsiteRanking);
-            setLoading(false);
-        }, 1000);
+        try {
+            const res = await api.get(`/api/rank/${id}`);
+            if (res.data.success) {
+                if (res.data.tracking.status === "checking") {
+                    setTimeout(fetchTracking, 3000);
+                    setTracking(res.data.tracking);
+                    return;
+                }
+                setTracking(res.data.tracking);
+            }
+        } catch {
+            // handled by null state
+        }
+        setLoading(false);
     };
 
     const handleRefresh = async () => {
         if (!tracking) return;
         setRefreshing(true);
-        setTimeout(() => {
-            setTracking(dummyWebsiteRanking);
-            setRefreshing(false);
-        }, 1000);
+        try {
+            await api.post(`/api/rank/${tracking._id}/refresh`);
+            setTracking((prev) => (prev ? { ...prev, status: "checking" } : null))
+
+            const pollInterval = setInterval(async () => {
+                try {
+                    const check = await api.get(`/api/rank/${tracking._id}`);
+                    if (check.data.tracking.status !== "checking") {
+                        clearInterval(pollInterval);
+                        setTracking(check.data.tracking);
+                        setRefreshing(false);
+                    }
+                } catch (error: any) {
+                    console.error(error);
+                }
+            }, 3000)
+        } catch {
+            setRefreshing(false)
+        }
     };
 
     const drawChart = () => {
@@ -372,9 +399,8 @@ export default function RankDetail() {
                                         {tracking.competitors.slice(0, 3).map((comp, i) => (
                                             <div key={i} className="glass rounded-xl p-4 flex items-start gap-4">
                                                 <div
-                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${
-                                                        i === 0 ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : i === 1 ? "bg-gray-400/15 text-gray-300 border border-gray-400/30" : "bg-orange-500/15 text-orange-400 border border-orange-500/30"
-                                                    }`}
+                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${i === 0 ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : i === 1 ? "bg-gray-400/15 text-gray-300 border border-gray-400/30" : "bg-orange-500/15 text-orange-400 border border-orange-500/30"
+                                                        }`}
                                                 >
                                                     #{comp.position}
                                                 </div>
@@ -405,9 +431,8 @@ export default function RankDetail() {
                                         <div key={i} className="glass rounded-xl p-4 hover:bg-muted/50 transition-all">
                                             <div className="flex items-start gap-4">
                                                 <div
-                                                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${
-                                                        comp.position <= 3 ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" : comp.position <= 10 ? "bg-primary/15 text-primary border border-primary/30" : "bg-accent/15 text-accent border border-accent/30"
-                                                    }`}
+                                                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${comp.position <= 3 ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" : comp.position <= 10 ? "bg-primary/15 text-primary border border-primary/30" : "bg-accent/15 text-accent border border-accent/30"
+                                                        }`}
                                                 >
                                                     #{comp.position}
                                                 </div>
@@ -445,17 +470,16 @@ export default function RankDetail() {
                                         .map((entry, i) => (
                                             <div key={i} className="glass rounded-xl p-4 flex items-center gap-4 hover:bg-muted/50 transition-all">
                                                 <div
-                                                    className={`w-12 h-12 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${
-                                                        entry.position === null
-                                                            ? "bg-muted text-muted-foreground border border-border"
-                                                            : entry.position <= 3
-                                                              ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                                                              : entry.position <= 10
+                                                    className={`w-12 h-12 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${entry.position === null
+                                                        ? "bg-muted text-muted-foreground border border-border"
+                                                        : entry.position <= 3
+                                                            ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                                                            : entry.position <= 10
                                                                 ? "bg-primary/15 text-primary border border-primary/30"
                                                                 : entry.position <= 20
-                                                                  ? "bg-accent/15 text-accent border border-accent/30"
-                                                                  : "bg-danger/15 text-danger border border-danger/30"
-                                                    }`}
+                                                                    ? "bg-accent/15 text-accent border border-accent/30"
+                                                                    : "bg-danger/15 text-danger border border-danger/30"
+                                                        }`}
                                                 >
                                                     {entry.position ? `#${entry.position}` : "—"}
                                                 </div>

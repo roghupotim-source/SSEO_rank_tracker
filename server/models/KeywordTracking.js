@@ -60,9 +60,8 @@ keywordTrackingSchema.index(
     { unique: true }
 );
 
-const KeywordTracking = mongoose.model(
-    "KeywordTracking",
-    keywordTrackingSchema
-);
+const KeywordTracking =
+    mongoose.models.KeywordTracking ||
+    mongoose.model("KeywordTracking", keywordTrackingSchema);
 
 export default KeywordTracking;
